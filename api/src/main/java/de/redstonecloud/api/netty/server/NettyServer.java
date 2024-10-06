@@ -81,7 +81,7 @@ public class NettyServer extends ChannelInitializer<Channel> {
     }
 
     public Optional<Channel> getChannel(String clientId) {
-        return Optional.ofNullable(this.channelCache.getOrDefault(clientId, null));
+        return Optional.ofNullable(this.channelCache.getOrDefault(clientId.toUpperCase(), null));
     }
 
     public Collection<Channel> getChannels(String idPattern) {

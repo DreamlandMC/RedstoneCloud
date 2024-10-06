@@ -89,6 +89,8 @@ public class RedstoneCloud {
         try {
             System.out.println(Translator.translate("cloud.startup.redis"));
             broker = new Broker("cloud", "cloud");
+            broker.getPublisher().configSet("timeout", "0");
+            broker.getPublisher().configSet("tcp-keepalive", "30");
         } catch (Exception e) {
             throw new RuntimeException("Cannot connect to Redis: " + e);
         }

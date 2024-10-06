@@ -7,6 +7,8 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.Getter;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.JedisPubSub;
 
 import java.util.Optional;
@@ -25,6 +27,7 @@ public class Broker {
     protected String mainRoute;
     protected Jedis publisher;
     protected Jedis subscriber;
+    protected JedisPool pool;
 
     protected Object2ObjectOpenHashMap<String, ObjectArrayList<Consumer<Message>>> consumers;
     protected Int2ObjectOpenHashMap<Consumer<Message>> pendingResponses;
@@ -45,8 +48,17 @@ public class Broker {
     private void initJedis(String... routes) {
         String addr = System.getenv("REDIS_IP") != null ? System.getenv("REDIS_IP") : System.getProperty("redis.bind");
         int port = Integer.parseInt(System.getenv("REDIS_PORT") != null ? System.getenv("REDIS_PORT") : System.getProperty("redis.port"));
-        this.publisher = new Jedis(addr, port);
-        this.subscriber = new Jedis(addr, port);
+
+        JedisPoolConfig config = new JedisPoolConfig();
+        config.setMinIdle(16);
+        config.setMaxIdle(64);
+        config.setMaxTotal(256);
+        config.setBlockWhenExhausted(true);
+
+        pool = new JedisPool(config, addr, port);
+
+        this.publisher = pool.getResource();
+        this.subscriber = new Jedis(addr, port,0);
         new Thread(() -> {
             try {
                 this.subscriber.subscribe(new BrokerJedisPubSub(), routes);
@@ -55,6 +67,7 @@ public class Broker {
     }
 
     public void publish(Message message) {
+        if(this.publisher == null || this.publisher.isBroken() || !this.publisher.isConnected()) this.publisher = pool.getResource();
         this.publisher.publish(message.getTo(), message.toJson());
     }
 
@@ -63,6 +76,7 @@ public class Broker {
     }
 
     public void shutdown() {
+        this.pool.close();
         this.publisher.close();
         this.subscriber.close();
     }
