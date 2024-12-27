@@ -139,6 +139,9 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <transformers>
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                    </transformers>
                     <outputFile>target\${project.artifactId}-${project.version}-shaded.jar</outputFile>
                 </configuration>
             </plugin>

@@ -25,11 +25,9 @@ public class PlayerManager {
     }
 
     public void removePlayer(String uuid) {
-        CloudPlayer p = players.get(uuid);
-        players.remove(uuid);
+        CloudPlayer p = players.remove(uuid);
         if(p != null) playersByName.remove(p.getName());
         p.resetCache();
-
     }
 
     public CloudPlayer getPlayer(String uuid) {

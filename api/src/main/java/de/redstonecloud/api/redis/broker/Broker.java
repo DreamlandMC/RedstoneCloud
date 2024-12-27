@@ -25,7 +25,6 @@ public class Broker {
     }
 
     protected String mainRoute;
-    protected Jedis publisher;
     protected Jedis subscriber;
     protected JedisPool pool;
 
@@ -52,12 +51,15 @@ public class Broker {
         JedisPoolConfig config = new JedisPoolConfig();
         config.setMinIdle(16);
         config.setMaxIdle(64);
-        config.setMaxTotal(256);
+        config.setMaxTotal(600);
         config.setBlockWhenExhausted(true);
+        config.setTestOnBorrow(true);
+        config.setMaxWaitMillis(2000);
+        config.setTestOnReturn(true);
+
 
         pool = new JedisPool(config, addr, port);
 
-        this.publisher = pool.getResource();
         this.subscriber = new Jedis(addr, port,0);
         new Thread(() -> {
             try {
@@ -67,8 +69,12 @@ public class Broker {
     }
 
     public void publish(Message message) {
-        if(this.publisher == null || this.publisher.isBroken() || !this.publisher.isConnected()) this.publisher = pool.getResource();
-        this.publisher.publish(message.getTo(), message.toJson());
+        try (Jedis publisher = pool.getResource()) {
+            publisher.publish(message.getTo(), message.toJson());
+        } catch (Exception e) {
+            // Handle the exception properly, at least log it to avoid silent errors
+            e.printStackTrace();
+        }
     }
 
     public void listen(String channel, Consumer<Message> callback) {
@@ -77,7 +83,6 @@ public class Broker {
 
     public void shutdown() {
         this.pool.close();
-        this.publisher.close();
         this.subscriber.close();
     }
 

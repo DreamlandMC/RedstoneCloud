@@ -38,6 +38,8 @@ public class Server implements ICloudServer, Cacheable {
     private ServerStatus status = ServerStatus.NONE;
     public ServerType type;
     public long createdAt;
+    @Builder.Default
+    public long lastPlayerUpdate = System.currentTimeMillis();
     public String directory;
     @Setter
     public ServerLogger logger;
@@ -208,6 +210,20 @@ public class Server implements ICloudServer, Cacheable {
         process.onExit().thenRun(this::onExit);
 
         //TODO: server manager stuff
+    }
+
+    public void kill() {
+        this.stop();
+
+        RedstoneCloud.getInstance().getScheduler().scheduleDelayedTask(new Task() {
+            @Override
+            protected void onRun(long currentMillis) {
+                if (process.isAlive()) {
+                    process.destroyForcibly();
+                    RedstoneCloud.getLogger().debug(name + " didn't stop in time. killing process...");
+                }
+            }
+        }, 5000);
     }
 
     @Override
