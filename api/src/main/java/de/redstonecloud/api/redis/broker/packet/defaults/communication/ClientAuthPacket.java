@@ -14,12 +14,12 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClientAuthPacket extends Packet {
-    public static String NETWORK_ID = "0";
+    public static int NETWORK_ID = 0;
 
     protected String clientId;
 
     @Override
-    public String packetId() {
+    public int packetId() {
         return NETWORK_ID;
     }
 

@@ -14,12 +14,12 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ServerStartedPacket extends Packet {
-    public static String NETWORK_ID = "4";
+    public static int NETWORK_ID = 4;
 
     protected String serverName;
 
     @Override
-    public String packetId() {
+    public int packetId() {
         return NETWORK_ID;
     }
 
