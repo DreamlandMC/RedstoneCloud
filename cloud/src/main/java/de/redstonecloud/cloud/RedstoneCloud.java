@@ -90,6 +90,8 @@ public class RedstoneCloud {
             System.out.println(Translator.translate("cloud.startup.redis"));
             broker = new Broker("cloud", "cloud");
         } catch (Exception e) {
+            System.out.println(System.getenv("REDIS_IP") != null ? System.getenv("REDIS_IP") : System.getProperty("redis.bind"));
+            System.out.println(System.getenv("REDIS_PORT") != null ? System.getenv("REDIS_PORT") : System.getProperty("redis.port"));
             throw new RuntimeException("Cannot connect to Redis: " + e);
         }
 
@@ -175,10 +177,8 @@ public class RedstoneCloud {
 
         this.eventManager = new EventManager(this);
 
-
         this.pluginManager = new PluginManager(this);
         pluginManager.loadAllPlugins();
-
 
         this.scheduler.scheduleRepeatingTask(new Task() {
             @Override
@@ -194,7 +194,6 @@ public class RedstoneCloud {
         this.console = new Console(this);
         this.consoleThread = new ConsoleThread();
         this.consoleThread.start();
-
 
         this.scheduler.scheduleRepeatingTask(new CheckTemplateTask(), 3000L);
 
@@ -220,6 +219,7 @@ public class RedstoneCloud {
             logger.info(Translator.translate("cloud.shutdown.plugins"));
             this.eventManager.getThreadedExecutor().shutdown();
             logger.info(Translator.translate("cloud.shutdown.complete"));
+            Broker.get().getPool().getResource().flushAll();
             Broker.get().shutdown();
             if(usingIntRedis) redisServer.stop();
         } catch (InterruptedException e) {

@@ -60,6 +60,7 @@ public class ServerManager {
                     .minServers(data.get("minServers").getAsInt())
                     .maxServers(data.get("maxServers").getAsInt())
                     .staticServer(data.get("staticServer").getAsBoolean())
+                    .stopOnEmpty(data.has("stopOnEmpty") && data.get("stopOnEmpty").getAsBoolean())
                     .build();
             templates.put(data.get("name").getAsString(), t);
         }
@@ -128,7 +129,6 @@ public class ServerManager {
         srv.prepare();
         add(srv);
         template.setRunningServers(template.getRunningServers() + 1);
-        template.setRunningSinceStart(template.getRunningSinceStart() + 1);
 
         RedstoneCloud cloud = RedstoneCloud.getInstance();
         cloud.getScheduler().scheduleDelayedTask(() -> {
