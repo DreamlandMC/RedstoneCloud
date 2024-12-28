@@ -3,6 +3,7 @@ package de.redstonecloud.cloud;
 import de.pierreschwang.nettypacket.event.EventRegistry;
 import de.redstonecloud.api.encryption.KeyManager;
 import de.redstonecloud.api.encryption.cache.KeyCache;
+import de.redstonecloud.api.redis.broker.BrokerHelper;
 import de.redstonecloud.cloud.config.CloudConfig;
 import de.redstonecloud.cloud.events.EventManager;
 import de.redstonecloud.cloud.logger.Logger;
@@ -13,6 +14,7 @@ import de.redstonecloud.cloud.netty.TemplateHandler;
 import de.redstonecloud.cloud.player.CloudPlayer;
 import de.redstonecloud.cloud.player.PlayerManager;
 import de.redstonecloud.cloud.plugin.PluginManager;
+import de.redstonecloud.cloud.redis.PacketHandler;
 import de.redstonecloud.cloud.scheduler.task.Task;
 import de.redstonecloud.cloud.server.ServerLogger;
 import de.redstonecloud.cloud.commands.CommandManager;
@@ -88,7 +90,9 @@ public class RedstoneCloud {
 
         try {
             System.out.println(Translator.translate("cloud.startup.redis"));
-            broker = new Broker("cloud", "cloud");
+            broker = new Broker("cloud", BrokerHelper.constructRegistry(), "cloud");
+
+            broker.listen("cloud", PacketHandler::handle);
         } catch (Exception e) {
             System.out.println(System.getenv("REDIS_IP") != null ? System.getenv("REDIS_IP") : System.getProperty("redis.bind"));
             System.out.println(System.getenv("REDIS_PORT") != null ? System.getenv("REDIS_PORT") : System.getProperty("redis.port"));
@@ -148,12 +152,12 @@ public class RedstoneCloud {
 
         this.scheduler = new TaskScheduler(new ScheduledThreadPoolExecutor(Runtime.getRuntime().availableProcessors()));
 
-        this.nettyServer = new NettyServer(NettyHelper.constructRegistry(), new EventRegistry());
+        /*this.nettyServer = new NettyServer(NettyHelper.constructRegistry(), new EventRegistry());
         this.nettyServer.getEventRegistry().registerEvents(new CommHandler(this.nettyServer));
         this.nettyServer.getEventRegistry().registerEvents(new TemplateHandler(this.nettyServer));
         this.nettyServer.getEventRegistry().registerEvents(new PlayerHandler(this.nettyServer));
         this.nettyServer.getEventRegistry().registerEvents(new ServerHandler(this.nettyServer));
-        this.nettyServer.setPort(CloudConfig.getCfg().get("netty_port").getAsInt()).bind();
+        this.nettyServer.setPort(CloudConfig.getCfg().get("netty_port").getAsInt()).bind();*/
 
         PublicKey publicKey = KeyManager.init();
         this.keyCache = new KeyCache();
@@ -207,8 +211,9 @@ public class RedstoneCloud {
 
         this.stopped = true;
         running = false;
+        broker.shutdown();
         this.scheduler.stopScheduler();
-        this.nettyServer.shutdown();
+        //this.nettyServer.shutdown();
 
         try {
             Thread.sleep(200);

@@ -2,13 +2,11 @@ package de.redstonecloud.api.netty.server;
 
 import de.pierreschwang.nettypacket.Packet;
 import de.pierreschwang.nettypacket.event.EventRegistry;
-import de.pierreschwang.nettypacket.handler.PacketChannelInboundHandler;
 import de.pierreschwang.nettypacket.handler.PacketDecoder;
 import de.pierreschwang.nettypacket.handler.PacketEncoder;
 import de.pierreschwang.nettypacket.registry.IPacketRegistry;
 import de.pierreschwang.nettypacket.response.RespondingPacket;
 import de.redstonecloud.api.netty.packet.CustomPacketHandler;
-import de.redstonecloud.api.netty.server.handler.ExceptionHandler;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
