@@ -14,13 +14,13 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ServerChangeStatusPacket extends Packet {
-    public static String NETWORK_ID = "10";
+    public static int NETWORK_ID = 10;
 
     protected String server;
     protected String newStatus;
 
     @Override
-    public String packetId() {
+    public int packetId() {
         return NETWORK_ID;
     }
 

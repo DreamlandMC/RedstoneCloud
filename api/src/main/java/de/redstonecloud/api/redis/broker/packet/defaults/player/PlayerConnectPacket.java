@@ -14,7 +14,7 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlayerConnectPacket extends Packet {
-    public static String NETWORK_ID = "5";
+    public static int NETWORK_ID = 5;
 
     protected String playerName;
     protected String uuid;
@@ -22,7 +22,7 @@ public class PlayerConnectPacket extends Packet {
     protected String server;
 
     @Override
-    public String packetId() {
+    public int packetId() {
         return NETWORK_ID;
     }
 

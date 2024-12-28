@@ -14,7 +14,7 @@ import java.util.function.Consumer;
 @Setter
 @Accessors(chain = true)
 public abstract class Packet {
-    public abstract String packetId();
+    public abstract int packetId();
     public abstract void serialize(JsonArray data);
     public abstract void deserialize(JsonArray data);
 

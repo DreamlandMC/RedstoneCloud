@@ -14,12 +14,12 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GetBestTemplatePacket extends Packet {
-    public static String NETWORK_ID = "1";
+    public static int NETWORK_ID = 1;
 
     protected String template;
 
     @Override
-    public String packetId() {
+    public int packetId() {
         return NETWORK_ID;
     }
 

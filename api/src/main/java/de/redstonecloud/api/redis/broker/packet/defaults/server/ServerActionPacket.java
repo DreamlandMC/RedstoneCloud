@@ -15,14 +15,14 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ServerActionPacket extends Packet {
-    public static String NETWORK_ID = "9";
+    public static int NETWORK_ID = 9;
     
     protected String action;
     protected String playerUuid;
     protected JsonObject extraData;
 
     @Override
-    public String packetId() {
+    public int packetId() {
         return NETWORK_ID;
     }
 

@@ -14,13 +14,13 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlayerDisconnectPacket extends Packet {
-    public static String NETWORK_ID = "6";
+    public static int NETWORK_ID = 6;
 
     protected String uuid;
     protected String server;
 
     @Override
-    public String packetId() {
+    public int packetId() {
         return NETWORK_ID;
     }
 
