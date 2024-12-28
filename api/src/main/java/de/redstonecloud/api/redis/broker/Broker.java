@@ -3,6 +3,7 @@ package de.redstonecloud.api.redis.broker;
 import com.google.common.base.Preconditions;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import de.redstonecloud.api.redis.broker.message.Message;
 import de.redstonecloud.api.redis.broker.packet.Packet;
 import de.redstonecloud.api.redis.broker.packet.PacketRegistry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -36,8 +37,11 @@ public class Broker {
     protected Jedis subscriber;
     protected JedisPool pool;
 
-    protected Object2ObjectOpenHashMap<String, ObjectArrayList<Consumer<Packet>>> consumers;
-    protected Int2ObjectOpenHashMap<ResponseContainer<?>> pendingResponses;
+    protected Object2ObjectOpenHashMap<String, ObjectArrayList<Consumer<Packet>>> packetConsumers;
+    protected Int2ObjectOpenHashMap<ResponseContainer<?>> pendingPacketResponses;
+
+    protected Object2ObjectOpenHashMap<String, ObjectArrayList<Consumer<Message>>> messageConsumers;
+    protected Int2ObjectOpenHashMap<Consumer<Message>> pendingMessageResponses;
 
     public Broker(String mainRoute, PacketRegistry packetRegistry, String... routes) {
         Preconditions.checkArgument(instance == null, "Broker already initialized");
@@ -48,8 +52,11 @@ public class Broker {
 
         this.packetRegistry = packetRegistry;
 
-        this.consumers = new Object2ObjectOpenHashMap<>();
-        this.pendingResponses = new Int2ObjectOpenHashMap<>();
+        this.packetConsumers = new Object2ObjectOpenHashMap<>();
+        this.pendingPacketResponses = new Int2ObjectOpenHashMap<>();
+
+        this.messageConsumers = new Object2ObjectOpenHashMap<>();
+        this.pendingMessageResponses = new Int2ObjectOpenHashMap<>();
 
         initJedis(routes);
     }
@@ -83,8 +90,14 @@ public class Broker {
         } catch (Exception ignored) {}
     }
 
+    public void publish(Message message) {
+        try (Jedis publisher = this.pool.getResource()) {
+            publisher.publish(message.getTo(), message.toJson());
+        } catch (Exception ignored) {}
+    }
+
     public void listen(String channel, Consumer<Packet> callback) {
-        this.consumers.computeIfAbsent(channel, k -> new ObjectArrayList<>()).add(callback);
+        this.packetConsumers.computeIfAbsent(channel, k -> new ObjectArrayList<>()).add(callback);
     }
 
     public void shutdown() {
@@ -93,11 +106,19 @@ public class Broker {
     }
 
     public void addPendingResponse(int id, ResponseContainer<?> callback) {
-        Preconditions.checkArgument(!this.pendingResponses.containsKey(id), "A message with the same id is already waiting for a response");
-        this.pendingResponses.put(id, callback);
+        Preconditions.checkArgument(!this.pendingPacketResponses.containsKey(id), "A message with the same id is already waiting for a response");
+        this.pendingPacketResponses.put(id, callback);
         CompletableFuture.delayedExecutor(2, TimeUnit.SECONDS).execute(() ->
-                Optional.ofNullable(this.pendingResponses.remove(id))
+                Optional.ofNullable(this.pendingPacketResponses.remove(id))
                         .ifPresent(responseContainer -> responseContainer.consumer().accept(null)));
+    }
+
+    public void addPendingResponse(int id, Consumer<Message> callback) {
+        Preconditions.checkArgument(!this.pendingMessageResponses.containsKey(id), "A message with the same id is already waiting for a response");
+        this.pendingMessageResponses.put(id, callback);
+        CompletableFuture.delayedExecutor(2, TimeUnit.SECONDS).execute(() ->
+                Optional.ofNullable(this.pendingMessageResponses.remove(id))
+                        .ifPresent(consumer -> consumer.accept(null)));
     }
 
     @SuppressWarnings("unchecked")
@@ -105,22 +126,47 @@ public class Broker {
         @Override
         public void onMessage(String channel, String messageString) {
             JsonArray array = GSON.fromJson(messageString, JsonArray.class);
-            Packet packet = packetRegistry.create(array);
 
-            Optional.ofNullable(pendingResponses.remove(packet.getSessionId()))
-                    .ifPresent(responseContainer -> {
-                        Consumer<? extends Packet> consumer = responseContainer.consumer();
-                        Class<? extends Packet> packetClass = responseContainer.packetClass();
+            String type = array.get(0).getAsString();
 
-                        if (packetClass.isInstance(packet))
-                            ((Consumer<Packet>) consumer).accept(packetClass.cast(packet));
-                    });
+            switch (type) {
+                case "packet" -> {
+                    Packet packet = packetRegistry.create(array);
 
-            consumers.getOrDefault(channel, new ObjectArrayList<>())
-                    .forEach(consumer -> consumer.accept(packet));
+                    if (packet == null) {
+                        System.out.println("[BROKER] Received invalid packet: " + messageString);
+                        return;
+                    }
 
-            consumers.getOrDefault("", new ObjectArrayList<>())
-                    .forEach(consumer -> consumer.accept(packet));
+                    Optional.ofNullable(pendingPacketResponses.remove(packet.getSessionId()))
+                            .ifPresent(responseContainer -> {
+                                Consumer<? extends Packet> consumer = responseContainer.consumer();
+                                Class<? extends Packet> packetClass = responseContainer.packetClass();
+
+                                if (packetClass.isInstance(packet))
+                                    ((Consumer<Packet>) consumer).accept(packetClass.cast(packet));
+                            });
+
+                    packetConsumers.getOrDefault(channel, new ObjectArrayList<>())
+                            .forEach(consumer -> consumer.accept(packet));
+
+                    packetConsumers.getOrDefault("", new ObjectArrayList<>())
+                            .forEach(consumer -> consumer.accept(packet));
+                }
+                case "message" -> {
+                    Message message = Message.fromJson(array);
+
+                    Optional.ofNullable(pendingMessageResponses.remove(message.getId()))
+                            .ifPresent(consumer -> consumer.accept(message));
+
+                    messageConsumers.getOrDefault(channel, new ObjectArrayList<>())
+                            .forEach(consumer -> consumer.accept(message));
+
+                    messageConsumers.getOrDefault("", new ObjectArrayList<>())
+                            .forEach(consumer -> consumer.accept(message));
+                }
+                default -> System.out.println("[BROKER] Received unknown message type " + type);
+            }
         }
     }
 }

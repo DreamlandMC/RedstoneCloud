@@ -24,17 +24,18 @@ public abstract class Packet {
     protected String to;
 
     public JsonArray finalDocument() {
-        JsonArray array = new JsonArray();
-        array.add(this.packetId());
-        array.add(this.sessionId);
-        array.add(this.from);
-        array.add(this.to);
+        JsonArray object = new JsonArray();
+        object.add("packet");
+        object.add(this.packetId());
+        object.add(this.sessionId);
+        object.add(this.from);
+        object.add(this.to);
 
         JsonArray serialized = new JsonArray();
         this.serialize(serialized);
-        array.add(serialized);
+        object.add(serialized);
 
-        return array;
+        return object;
     }
 
     public void send() {
