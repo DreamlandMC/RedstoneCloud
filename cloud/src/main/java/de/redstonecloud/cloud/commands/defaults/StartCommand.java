@@ -1,10 +1,10 @@
 package de.redstonecloud.cloud.commands.defaults;
 
+import de.redstonecloud.api.util.EmptyArrays;
 import de.redstonecloud.cloud.RedstoneCloud;
 import de.redstonecloud.cloud.commands.Command;
 import de.redstonecloud.cloud.logger.Logger;
 import de.redstonecloud.cloud.server.Template;
-import io.netty.util.internal.EmptyArrays;
 
 public class StartCommand extends Command {
     public int argCount = 1;
@@ -38,6 +38,6 @@ public class StartCommand extends Command {
 
     @Override
     public String[] getArgs() {
-        return getServer().getServerManager().getTemplates().keySet().toArray(EmptyArrays.EMPTY_STRINGS);
+        return getServer().getServerManager().getTemplates().keySet().toArray(EmptyArrays.STRING);
     }
 }
