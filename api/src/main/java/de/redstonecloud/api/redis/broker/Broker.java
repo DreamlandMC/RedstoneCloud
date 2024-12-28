@@ -118,6 +118,9 @@ public class Broker {
 
             consumers.getOrDefault(channel, new ObjectArrayList<>())
                     .forEach(consumer -> consumer.accept(packet));
+
+            consumers.getOrDefault("", new ObjectArrayList<>())
+                    .forEach(consumer -> consumer.accept(packet));
         }
     }
 }
