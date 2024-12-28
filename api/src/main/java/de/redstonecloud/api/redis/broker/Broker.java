@@ -100,6 +100,10 @@ public class Broker {
         this.packetConsumers.computeIfAbsent(channel, k -> new ObjectArrayList<>()).add(callback);
     }
 
+    public void listenM(String channel, Consumer<Message> callback) {
+        this.messageConsumers.computeIfAbsent(channel, k -> new ObjectArrayList<>()).add(callback);
+    }
+
     public void shutdown() {
         this.pool.close();
         this.subscriber.close();
