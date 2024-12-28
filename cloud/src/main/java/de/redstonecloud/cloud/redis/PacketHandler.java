@@ -72,7 +72,7 @@ public class PacketHandler {
                 p.setConnectedServer(server);
             }
 
-            RedstoneCloud.getLogger().info("Player " + p.getName() + " switched to " + server.getName());
+            RedstoneCloud.getLogger().info("Player " + p.getName() + " connected to " + server.getName());
         }
     }
 
@@ -80,7 +80,7 @@ public class PacketHandler {
         Server server = RedstoneCloud.getInstance().getServerManager().getServer(packet.getServer());
         CloudPlayer p = PlayerManager.getInstance().getPlayer(packet.getUuid());
         if (p != null && server != null)
-            RedstoneCloud.getLogger().info("Player" + p.getName() + " disconnected from " + server.getName());
+            RedstoneCloud.getLogger().info("Player " + p.getName() + " disconnected from " + server.getName());
         if (server != null && server.getType().isProxy()) {
             if (p != null) {
                 RedstoneCloud.getInstance().getEventManager().callEvent(new PlayerDisconnectEvent(p, (Server) p.getConnectedNetwork(), (Server) p.getConnectedServer()));

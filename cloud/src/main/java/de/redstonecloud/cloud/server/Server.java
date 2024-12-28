@@ -6,7 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import de.redstonecloud.api.components.ICloudServer;
 import de.redstonecloud.api.components.ServerStatus;
-import de.redstonecloud.api.netty.packet.server.RemoveServerPacket;
+import de.redstonecloud.api.redis.broker.packet.defaults.server.RemoveServerPacket;
 import de.redstonecloud.cloud.RedstoneCloud;
 import de.redstonecloud.cloud.config.CloudConfig;
 import de.redstonecloud.cloud.events.defaults.ServerExitEvent;
@@ -142,13 +142,19 @@ public class Server implements ICloudServer, Cacheable {
 
         RedstoneCloud.getLogger().debug(Translator.translate("cloud.server.exited", name));
 
+        process.destroy();
+        status = ServerStatus.STOPPED;
+        resetCache();
+        ServerManager.getInstance().remove(this);
+        RedstoneCloud.getInstance().getEventManager().callEvent(new ServerExitEvent(this));
+
         ServerType[] proxyTypes = Arrays.stream(ServerManager.getInstance().getTypes().values().toArray(new ServerType[0])).filter(t -> t.isProxy()).toArray(ServerType[]::new);
 
         RemoveServerPacket rsp = new RemoveServerPacket().setServer(this.name);
 
         for(ServerType type : proxyTypes) {
             for(Server ser : ServerManager.getInstance().getServersByType(type)) {
-                RedstoneCloud.getInstance().getNettyServer().sendPacket(ser.getName().toUpperCase(), rsp);
+                rsp.setTo(ser.getName().toLowerCase()).send();
             }
         }
 
@@ -170,12 +176,6 @@ public class Server implements ICloudServer, Cacheable {
             }
 
         }
-
-        process.destroy();
-        status = ServerStatus.STOPPED;
-        resetCache();
-        ServerManager.getInstance().remove(this);
-        RedstoneCloud.getInstance().getEventManager().callEvent(new ServerExitEvent(this));
     }
 
     @Override
@@ -239,33 +239,6 @@ public class Server implements ICloudServer, Cacheable {
 
         status = ServerStatus.STOPPING;
         resetCache();
-
-
-        try {
-            //run code in thread to not block main thread
-            new Thread(() -> {
-                try {
-                    process.waitFor();
-
-                    RedstoneCloud.getInstance().getScheduler().scheduleDelayedTask(new Task() {
-                        @Override
-                        protected void onRun(long currentMillis) {
-                            if (process.isAlive()) {
-                                process.destroyForcibly();
-                                RedstoneCloud.getLogger().debug(name + " didn't stop in time. killing process...");
-                            }
-                        }
-                    }, 5000);
-
-                    process.destroy();
-                    status = ServerStatus.STOPPED;
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }).start();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     @Override

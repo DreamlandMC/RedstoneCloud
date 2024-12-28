@@ -1,7 +1,7 @@
 package de.redstonecloud.cloud.commands;
 
+import de.redstonecloud.api.util.EmptyArrays;
 import de.redstonecloud.cloud.RedstoneCloud;
-import io.netty.util.internal.EmptyArrays;
 
 public class Command {
 
@@ -27,7 +27,7 @@ public class Command {
     }
 
     public String[] getArgs() {
-        return EmptyArrays.EMPTY_STRINGS;
+        return EmptyArrays.STRING;
     }
 
 }

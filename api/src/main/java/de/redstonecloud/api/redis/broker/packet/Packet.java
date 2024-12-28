@@ -21,7 +21,7 @@ public abstract class Packet {
     protected int sessionId = ThreadLocalRandom.current().nextInt(0, 1000);
 
     protected String from = Broker.get().getMainRoute();
-    protected String to;
+    protected String to = "cloud";
 
     public JsonArray finalDocument() {
         JsonArray object = new JsonArray();
