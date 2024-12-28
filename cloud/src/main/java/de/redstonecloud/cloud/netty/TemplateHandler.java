@@ -22,6 +22,9 @@ public class TemplateHandler {
         Template template = ServerManager.getInstance().getTemplate(packet.getTemplate());
         if (template != null) {
             ServerManager.BestServerResult[] s = ServerManager.getInstance().getBestServer(template);
+            if(s.length == 0) {
+                return;
+            }
             ServerManager.BestServerResult ss = s[0];
             String name = ss.server().name; //debug reasons, dont ask why
 

@@ -20,6 +20,7 @@ public class Cache {
         config.setMaxIdle(64);
         config.setMaxTotal(256);
         config.setBlockWhenExhausted(true);
+        config.setTestOnBorrow(true);
 
         String addr = System.getenv("REDIS_IP") != null ? System.getenv("REDIS_IP") : System.getProperty("redis.bind");
         int port = Integer.parseInt(System.getenv("REDIS_PORT") != null ? System.getenv("REDIS_PORT") : System.getProperty("redis.port"));

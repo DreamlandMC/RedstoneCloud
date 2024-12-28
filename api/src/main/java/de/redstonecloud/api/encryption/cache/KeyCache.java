@@ -36,7 +36,7 @@ public class KeyCache extends Cache {
     }
 
     public void removeKey(String route, PublicKey key) {
-        List<String> routeList = this.getList("encryption." + route);
+        List<String> routeList = this.getList("encryption:" + route);
         if (routeList == null) {
             return;
         }

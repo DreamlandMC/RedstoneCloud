@@ -48,8 +48,9 @@ public class PlayerHandler {
     @PacketSubscriber
     public void on(PlayerDisconnectPacket packet) {
         Server server = RedstoneCloud.getInstance().getServerManager().getServer(packet.getServer());
+        CloudPlayer p = PlayerManager.getInstance().getPlayer(packet.getUuid());
+        if(p != null && server != null) RedstoneCloud.getLogger().info("Player" + p.getName() + " disconnected from " + server.getName());
         if (server != null && server.getType().isProxy()) {
-            CloudPlayer p = PlayerManager.getInstance().getPlayer(packet.getUuid());
             if (p != null) {
                 RedstoneCloud.getInstance().getEventManager().callEvent(new PlayerDisconnectEvent(p, (Server) p.getConnectedNetwork(), (Server) p.getConnectedServer()));
                 p.setConnectedServer(null);

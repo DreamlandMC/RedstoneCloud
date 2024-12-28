@@ -2,15 +2,17 @@ package de.redstonecloud.api.netty.server;
 
 import de.pierreschwang.nettypacket.Packet;
 import de.pierreschwang.nettypacket.event.EventRegistry;
-import de.pierreschwang.nettypacket.handler.PacketChannelInboundHandler;
 import de.pierreschwang.nettypacket.handler.PacketDecoder;
 import de.pierreschwang.nettypacket.handler.PacketEncoder;
 import de.pierreschwang.nettypacket.registry.IPacketRegistry;
 import de.pierreschwang.nettypacket.response.RespondingPacket;
+import de.redstonecloud.api.netty.packet.CustomPacketHandler;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import io.netty.handler.codec.LengthFieldPrepender;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
 import lombok.Setter;
@@ -42,7 +44,7 @@ public class NettyServer extends ChannelInitializer<Channel> {
     public NettyServer(IPacketRegistry packetRegistry, EventRegistry eventRegistry) {
         this.bootstrap = new ServerBootstrap()
                 .option(ChannelOption.AUTO_READ, true)
-                .option(ChannelOption.SO_KEEPALIVE, true)
+                .childOption(ChannelOption.SO_KEEPALIVE, true)
                 .channel(NioServerSocketChannel.class)
                 .group(this.boss, this.worker)
                 .childHandler(this);
@@ -75,9 +77,12 @@ public class NettyServer extends ChannelInitializer<Channel> {
     @Override
     protected void initChannel(Channel channel) {
         channel.pipeline()
+                .addLast(new LengthFieldBasedFrameDecoder(8192, 0, 4, 0, 4)) // Handles framing
+                .addLast(new LengthFieldPrepender(4))
                 .addLast(new PacketDecoder(this.packetRegistry),
                         new PacketEncoder(this.packetRegistry),
-                        new PacketChannelInboundHandler(this.eventRegistry));
+                        new CustomPacketHandler(this.eventRegistry));
+                //.addLast(new ExceptionHandler(this));
     }
 
     public Optional<Channel> getChannel(String clientId) {

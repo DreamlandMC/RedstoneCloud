@@ -27,6 +27,7 @@ public class NettyHelper {
         IPacketRegistry registry = new SimplePacketRegistry();
         Holder.registry = registry;
 
+
         try {
             registry.registerPacket(EncryptedPacket.NETWORK_ID, EncryptedPacket.class);
             registry.registerPacket(ClientAuthPacket.NETWORK_ID, ClientAuthPacket.class);
