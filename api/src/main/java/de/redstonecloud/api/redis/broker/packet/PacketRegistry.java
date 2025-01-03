@@ -24,13 +24,13 @@ public class PacketRegistry {
     }
 
     public Packet create(JsonArray packetData) {
-        Packet packet = this.create(packetData.get(0).getAsInt());
+        Packet packet = this.create(packetData.get(1).getAsInt());
 
         if (packet != null) {
-            packet.setSessionId(packetData.get(1).getAsInt());
-            packet.setFrom(packetData.get(2).getAsString());
-            packet.setTo(packetData.get(3).getAsString());
-            packet.deserialize(packetData.get(4).getAsJsonArray());
+            packet.setSessionId(packetData.get(2).getAsInt());
+            packet.setFrom(packetData.get(3).getAsString());
+            packet.setTo(packetData.get(4).getAsString());
+            packet.deserialize(packetData.get(5).getAsJsonArray());
         }
 
         return packet;

@@ -28,8 +28,8 @@ public abstract class Packet {
         object.add("packet");
         object.add(this.packetId());
         object.add(this.sessionId);
-        object.add(this.from);
-        object.add(this.to);
+        object.add(this.from.toLowerCase());
+        object.add(this.to.toLowerCase());
 
         JsonArray serialized = new JsonArray();
         this.serialize(serialized);

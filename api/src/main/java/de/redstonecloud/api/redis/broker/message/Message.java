@@ -49,10 +49,10 @@ public class Message {
 
     public String toJson() {
         JsonArray object = new JsonArray();
-        object.add("msg");
+        object.add("message");
         object.add(this.id);
-        object.add(this.from);
-        object.add(this.to);
+        object.add(this.from.toLowerCase());
+        object.add(this.to.toLowerCase());
 
         JsonArray array = new JsonArray(this.arguments.length);
         for (String argument : this.arguments) {

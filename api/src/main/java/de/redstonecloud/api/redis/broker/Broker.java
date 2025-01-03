@@ -16,6 +16,7 @@ import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.JedisPubSub;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +43,8 @@ public class Broker {
 
     protected Object2ObjectOpenHashMap<String, ObjectArrayList<Consumer<Message>>> messageConsumers;
     protected Int2ObjectOpenHashMap<Consumer<Message>> pendingMessageResponses;
+
+    private boolean running = false;
 
     public Broker(String mainRoute, PacketRegistry packetRegistry, String... routes) {
         Preconditions.checkArgument(instance == null, "Broker already initialized");
@@ -74,25 +77,37 @@ public class Broker {
         config.setMaxWait(Duration.ofSeconds(1));
         config.setTestOnReturn(true);
 
-        this.pool = new JedisPool(config, address, port);
+        this.pool = new JedisPool(config, address, port, 0);
+
+        running = true;
 
         new Thread(() -> {
-            try {
-                this.subscriber = new Jedis(address, port, 0);
-                this.subscriber.subscribe(new BrokerJedisPubSub(), routes);
-            } catch (Exception ignored) {}
+            while (running) { // Keep the subscriber alive
+                try (Jedis jedis = new Jedis(address, port, 0)) { // Use try-with-resources for safe closing
+                    this.subscriber = jedis; // Save the subscriber instance if needed elsewhere
+                    System.out.println("Connecting to Redis...");
+
+                    jedis.subscribe(new BrokerJedisPubSub(), routes);
+
+                    System.out.println("Subscribed to: " + String.join(", ", routes));
+                } catch (Exception e) {
+                    // Log the exception for debugging purposes
+                    System.err.println("Subscriber error: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
         }).start();
     }
 
     public void publish(Packet packet) {
         try (Jedis publisher = this.pool.getResource()) {
-            publisher.publish(packet.getTo(), packet.finalDocument().toString());
+            publisher.publish(packet.getTo().toLowerCase(), packet.finalDocument().toString());
         } catch (Exception ignored) {}
     }
 
     public void publish(Message message) {
         try (Jedis publisher = this.pool.getResource()) {
-            publisher.publish(message.getTo(), message.toJson());
+            publisher.publish(message.getTo().toLowerCase(), message.toJson());
         } catch (Exception ignored) {}
     }
 
@@ -105,6 +120,7 @@ public class Broker {
     }
 
     public void shutdown() {
+        running = false;
         this.pool.close();
         this.subscriber.close();
     }
@@ -112,7 +128,7 @@ public class Broker {
     public void addPendingResponse(int id, ResponseContainer<?> callback) {
         Preconditions.checkArgument(!this.pendingPacketResponses.containsKey(id), "A message with the same id is already waiting for a response");
         this.pendingPacketResponses.put(id, callback);
-        CompletableFuture.delayedExecutor(2, TimeUnit.SECONDS).execute(() ->
+        CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS).execute(() ->
                 Optional.ofNullable(this.pendingPacketResponses.remove(id))
                         .ifPresent(responseContainer -> responseContainer.consumer().accept(null)));
     }
@@ -120,7 +136,7 @@ public class Broker {
     public void addPendingResponse(int id, Consumer<Message> callback) {
         Preconditions.checkArgument(!this.pendingMessageResponses.containsKey(id), "A message with the same id is already waiting for a response");
         this.pendingMessageResponses.put(id, callback);
-        CompletableFuture.delayedExecutor(2, TimeUnit.SECONDS).execute(() ->
+        CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS).execute(() ->
                 Optional.ofNullable(this.pendingMessageResponses.remove(id))
                         .ifPresent(consumer -> consumer.accept(null)));
     }
