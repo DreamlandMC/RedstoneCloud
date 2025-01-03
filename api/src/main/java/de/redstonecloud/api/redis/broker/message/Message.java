@@ -1,14 +1,13 @@
 package de.redstonecloud.api.redis.broker.message;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import de.redstonecloud.api.redis.broker.Broker;
+import de.redstonecloud.api.util.EmptyArrays;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import de.redstonecloud.api.redis.broker.Broker;
-import de.redstonecloud.api.util.EmptyArrays;
 
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
@@ -19,7 +18,6 @@ import java.util.function.Consumer;
 @Accessors(chain = true)
 @AllArgsConstructor
 public class Message {
-    public static final Gson GSON = new Gson();
 
     protected int id;
     protected String from;
@@ -51,9 +49,10 @@ public class Message {
 
     public String toJson() {
         JsonArray object = new JsonArray();
+        object.add("message");
         object.add(this.id);
-        object.add(this.from);
-        object.add(this.to);
+        object.add(this.from.toLowerCase());
+        object.add(this.to.toLowerCase());
 
         JsonArray array = new JsonArray(this.arguments.length);
         for (String argument : this.arguments) {
@@ -64,13 +63,11 @@ public class Message {
         return object.toString();
     }
 
-    public static Message fromJson(String json) {
-        JsonArray object = GSON.fromJson(json, JsonArray.class);
-
-        int messageId = object.get(0).getAsInt();
-        String from = object.get(1).getAsString();
-        String to = object.get(2).getAsString();
-        JsonArray arguments = object.get(3).getAsJsonArray();
+    public static Message fromJson(JsonArray object) {
+        int messageId = object.get(1).getAsInt();
+        String from = object.get(2).getAsString();
+        String to = object.get(3).getAsString();
+        JsonArray arguments = object.get(4).getAsJsonArray();
 
         String[] argumentsArray = new String[arguments.size()];
         for (int i = 0; i < arguments.size(); i++) {

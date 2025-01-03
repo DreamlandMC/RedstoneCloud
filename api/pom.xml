@@ -60,17 +60,6 @@
             <version>${version.jedis}</version>
             <scope>compile</scope>
         </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-all</artifactId>
-            <version>${version.netty}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.PierreSchwang</groupId>
-            <artifactId>Netty-Packet</artifactId>
-            <version>${version.netty.packet}</version>
-        </dependency>
     </dependencies>
 
     <build>

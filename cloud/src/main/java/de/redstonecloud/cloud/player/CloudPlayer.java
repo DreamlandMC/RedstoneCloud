@@ -52,28 +52,35 @@ public class CloudPlayer implements ICloudPlayer, Cacheable {
     }
 
     public void setConnectedServer(Server srv) {
+        long updateMS = System.currentTimeMillis();
+
         if(server != null) {
             server.players.remove(uuid);
             server.updateCache();
+            server.lastPlayerUpdate = updateMS;
         }
         server = srv;
         updateCache();
         if(srv != null && !srv.players.contains(uuid)) {
             srv.players.add(uuid);
             srv.updateCache();
+            server.lastPlayerUpdate = updateMS;
         }
     }
 
     public void setConnectedNetwork(Server srv) {
+        long updateMS = System.currentTimeMillis();
         if(network != null) {
             network.players.remove(uuid);
             network.updateCache();
+            network.lastPlayerUpdate = updateMS;
         }
         network = srv;
         updateCache();
         if(srv != null && !srv.players.contains(uuid)) {
             srv.players.add(uuid);
             srv.updateCache();
+            network.lastPlayerUpdate = updateMS;
         }
     }
 

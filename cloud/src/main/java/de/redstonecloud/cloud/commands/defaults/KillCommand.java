@@ -6,32 +6,42 @@ import de.redstonecloud.cloud.commands.Command;
 import de.redstonecloud.cloud.logger.Logger;
 import de.redstonecloud.cloud.server.Server;
 
-public class InfoCommand extends Command {
+import java.util.Arrays;
+
+public class KillCommand extends Command {
     public int argCount = 1;
 
-    public InfoCommand(String cmd) {
+    public KillCommand(String cmd) {
         super(cmd);
     }
 
     @Override
     protected void onCommand(String[] args) {
         if (args.length == 0) {
-            Logger.getInstance().error("Usage: info <server>");
+            Logger.getInstance().error("Usage: kill <server>");
             return;
         }
 
         Server server = RedstoneCloud.getInstance().getServerManager().getServer(args[0]);
         if (server == null) {
+            if (args[0].endsWith("*")) {
+                Server[] servers = RedstoneCloud.getInstance().getServerManager().getServers().values().toArray(new Server[0]);
+                Server[] affectedServers = Arrays.stream(servers).filter(s -> s.getName().startsWith(args[0].substring(0, args[0].length() - 1))).toArray(Server[]::new);
+
+                for (Server s : affectedServers) {
+                    s.kill();
+                }
+
+                Logger.getInstance().info("Stopped " + affectedServers.length + " servers");
+                return;
+            }
+
+
             Logger.getInstance().error("Server not found.");
             return;
         }
 
-        Logger.getInstance().info("== SERVER INFO: " + server.getName() + " ==");
-        Logger.getInstance().info("Server Name: " + server.getName());
-        Logger.getInstance().info("Server Template: " + server.getTemplate().getName());
-        Logger.getInstance().info("Server Type: " + server.getType().name());
-        Logger.getInstance().info("Server Status: " + server.getStatus());
-        Logger.getInstance().info("Server Port: " + server.getPort());
+        server.kill();
     }
 
     @Override

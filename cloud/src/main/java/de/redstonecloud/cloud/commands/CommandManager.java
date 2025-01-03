@@ -29,6 +29,7 @@ public class CommandManager {
         addCommand(new StartCommand("start"));
         addCommand(new StopCommand("stop"));
         addCommand(new ListCommand("list"));
+        addCommand(new KillCommand("kill"));
     }
 
     public void executeCommand(String command, String[] args) {

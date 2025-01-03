@@ -18,7 +18,7 @@ public class Template {
     public int runningServers = 0;
     @Setter
     @Builder.Default
-    public int runningSinceStart = 0;
+    public boolean stopOnEmpty = false;
 
     public void checkServers() {
         Server[] servers = ServerManager.getInstance().getServersByTemplate(this);
@@ -27,11 +27,7 @@ public class Template {
 
         runningServers = servers.length;
 
-        if (runningServers >= maxServers) {
-            return;
-        }
-
-        if (runningServers < minServers) {
+        if (minServers > 0 && runningServers < minServers) {
             create = true;
         }
 
@@ -41,13 +37,17 @@ public class Template {
             if (server.getStatus() != ServerStatus.RUNNING && server.getStatus() != ServerStatus.STARTING && server.getStatus() != ServerStatus.PREPARED) {
                 blocked++;
             }
+
+            if(stopOnEmpty && server.players.isEmpty() && (System.currentTimeMillis() - server.lastPlayerUpdate > 1000*60*5)) {
+                server.stop();
+            }
         }
 
-        if (blocked == servers.length) {
+        if (minServers > 0 && blocked == servers.length) {
             create = true;
         }
 
-        if (create) {
+        if (create && runningServers <= maxServers) {
             ServerManager.getInstance().startServer(this);
         }
     }
