@@ -27,7 +27,7 @@ public class PluginManager {
     static {
         Representer representer = new Representer(new DumperOptions());
         representer.getPropertyUtils().setSkipMissingProperties(true);
-        yamlLoader = new Yaml(new CustomClassLoaderConstructor(PluginManager.class.getClassLoader(), new LoaderOptions()), representer);
+        yamlLoader = new Yaml(new CustomClassLoaderConstructor(PluginManager.class.getClassLoader(), new LoaderOptions()), representer, new DumperOptions());
     }
 
     private final RedstoneCloud cloud;
