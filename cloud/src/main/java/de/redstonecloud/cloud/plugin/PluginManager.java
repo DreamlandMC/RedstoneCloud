@@ -7,6 +7,8 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
+import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.CustomClassLoaderConstructor;
 import org.yaml.snakeyaml.representer.Representer;
@@ -23,9 +25,9 @@ public class PluginManager {
 
     public static final Yaml yamlLoader;
     static {
-        Representer representer = new Representer();
+        Representer representer = new Representer(new DumperOptions());
         representer.getPropertyUtils().setSkipMissingProperties(true);
-        yamlLoader = new Yaml(new CustomClassLoaderConstructor(PluginManager.class.getClassLoader()), representer);
+        yamlLoader = new Yaml(new CustomClassLoaderConstructor(PluginManager.class.getClassLoader(), new LoaderOptions()), representer, new DumperOptions());
     }
 
     private final RedstoneCloud cloud;
