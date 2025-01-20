@@ -92,11 +92,7 @@ public class Server implements ICloudServer, Cacheable {
      * SERVER SETUP STUFF
      */
 
-    public void prepare() {
-        if (status.getValue() >= ServerStatus.PREPARED.getValue()) {
-            return;
-        }
-
+    public void initName() {
         int servId = 1;
         if (ServerManager.getInstance().getServer(template.getName() + "-" + servId) != null) {
             while (ServerManager.getInstance().getServer(template.getName() + "-" + servId) != null) {
@@ -105,6 +101,14 @@ public class Server implements ICloudServer, Cacheable {
         }
 
         name = template.getName() + "-" + servId;
+    }
+
+    public void prepare() {
+        if (status.getValue() >= ServerStatus.PREPARED.getValue()) {
+            return;
+        }
+
+        if(name == null) initName();
 
         RedstoneCloud.getLogger().debug(Translator.translate("cloud.server.prepare", name));
 

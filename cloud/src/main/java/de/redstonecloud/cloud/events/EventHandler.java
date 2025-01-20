@@ -26,6 +26,7 @@ public class EventHandler {
                 this.handlePriority(priority, event);
             }
         });
+        future.complete(event);
         return future;
     }
 

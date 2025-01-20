@@ -14,6 +14,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -127,24 +129,33 @@ public class ServerManager {
                 .port(ThreadLocalRandom.current().nextInt(10000, 50000))
                 .build();
 
-        ServerCreateEvent check = new ServerCreateEvent(srv);
-        RedstoneCloud.getInstance().getEventManager().callEvent(check);
+        CompletableFuture<Server> result = new CompletableFuture<>();
 
-        if(check.isCancelled()) {
+        srv.initName();
+
+        RedstoneCloud.getInstance().getEventManager().callEvent(new ServerCreateEvent(srv)).whenComplete((res, a) -> {
+            if(res.isCancelled()) {
+                result.complete(null);
+                return;
+            }
+
+            result.complete(srv);
+            srv.prepare();
+            add(srv);
+            template.setRunningServers(template.getRunningServers() + 1);
+
+            RedstoneCloud cloud = RedstoneCloud.getInstance();
+            cloud.getScheduler().scheduleDelayedTask(() -> {
+                srv.start();
+                RedstoneCloud.getInstance().getEventManager().callEvent(new ServerStartEvent(srv));
+            }, TimeUnit.SECONDS, 1);
+        });
+
+        try {
+            return result.completeOnTimeout(null, 1000L, TimeUnit.MILLISECONDS).get();
+        } catch(Exception e) {
             return null;
         }
-
-        srv.prepare();
-        add(srv);
-        template.setRunningServers(template.getRunningServers() + 1);
-
-        RedstoneCloud cloud = RedstoneCloud.getInstance();
-        cloud.getScheduler().scheduleDelayedTask(() -> {
-            srv.start();
-            RedstoneCloud.getInstance().getEventManager().callEvent(new ServerStartEvent(srv));
-        }, TimeUnit.SECONDS, 1);
-
-        return srv;
     }
 
     public boolean stopAll() {
