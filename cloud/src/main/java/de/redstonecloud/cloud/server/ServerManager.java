@@ -122,6 +122,10 @@ public class ServerManager {
     }
 
     public Server startServer(Template template) {
+        return startServer(template, -1);
+    }
+
+    public Server startServer(Template template, Integer id) {
         Server srv = Server.builder()
                 .template(template)
                 .createdAt(System.currentTimeMillis())
@@ -131,7 +135,7 @@ public class ServerManager {
 
         CompletableFuture<Server> result = new CompletableFuture<>();
 
-        srv.initName();
+        srv.initName(id != null && id != -1 ? id : null);
 
         RedstoneCloud.getInstance().getEventManager().callEvent(new ServerCreateEvent(srv)).whenComplete((res, a) -> {
             if(res.isCancelled()) {

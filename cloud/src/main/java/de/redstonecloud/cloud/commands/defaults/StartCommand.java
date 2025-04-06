@@ -26,13 +26,31 @@ public class StartCommand extends Command {
             return;
         }
 
-        if (args.length == 2) {
-            for (int i = 1; i < Integer.parseInt(args[1]); i++) {
-                RedstoneCloud.getInstance().getServerManager().startServer(template);
+        //if args has --id or -i flag, next arg is the id, can be at args 1 or 2
+        //command: start <template> [count]
+        //command: start <template> [count] --id <id>
+        //command: start <template> --id <id> [count]
+        int newId = -1;
+        int amount = 1;
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equalsIgnoreCase("--id") || args[i].equalsIgnoreCase("-i")) {
+                if (i + 1 < args.length) {
+                    newId = Integer.parseInt(args[i + 1]);
+                }
+            }
+
+            if (args[i].equalsIgnoreCase("--amount") || args[i].equalsIgnoreCase("-a")) {
+                if (i + 1 < args.length) {
+                    amount = Integer.parseInt(args[i + 1]);
+                }
             }
         }
 
-        RedstoneCloud.getInstance().getServerManager().startServer(template);
+        if (amount != 1 && newId == -1) {
+            for (int i = 0; i < amount; i++) {
+                RedstoneCloud.getInstance().getServerManager().startServer(template);
+            }
+        } else RedstoneCloud.getInstance().getServerManager().startServer(template, newId);
         Logger.getInstance().info("Successfully started server using template " + template.getName());
     }
 
