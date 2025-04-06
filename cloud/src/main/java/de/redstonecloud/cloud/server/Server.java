@@ -99,7 +99,6 @@ public class Server implements ICloudServer, Cacheable {
                 return;
             } else {
                 RedstoneCloud.getLogger().error("Server with name " + template.getName() + "-" + forceId + " already exists, trying to find a new name...");
-                return;
             }
         }
 

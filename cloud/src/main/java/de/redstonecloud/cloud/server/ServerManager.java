@@ -158,6 +158,7 @@ public class ServerManager {
         try {
             return result.completeOnTimeout(null, 1000L, TimeUnit.MILLISECONDS).get();
         } catch(Exception e) {
+            e.printStackTrace();
             return null;
         }
     }
