@@ -35,4 +35,11 @@
         <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
+    <distributionManagement>
+        <repository>
+            <id>lpmc-redstonecloud</id>
+            <url>https://repo.lostplacemc.eu/redstonecloud</url>
+        </repository>
+    </distributionManagement>
 </project>

@@ -12,6 +12,13 @@
 
     <artifactId>cloud</artifactId>
 
+    <repositories>
+        <repository>
+            <id>lpmc-redstonecloud</id>
+            <url>https://repo.lostplacemc.eu/redstonecloud</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>de.redstonecloud</groupId>

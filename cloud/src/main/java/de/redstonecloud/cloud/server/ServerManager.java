@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import de.redstonecloud.cloud.RedstoneCloud;
 import de.redstonecloud.api.components.ServerStatus;
+import de.redstonecloud.cloud.events.defaults.ServerCreateEvent;
 import de.redstonecloud.cloud.events.defaults.ServerStartEvent;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
@@ -13,6 +14,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -119,6 +122,10 @@ public class ServerManager {
     }
 
     public Server startServer(Template template) {
+        return startServer(template, -1);
+    }
+
+    public Server startServer(Template template, Integer id) {
         Server srv = Server.builder()
                 .template(template)
                 .createdAt(System.currentTimeMillis())
@@ -126,17 +133,34 @@ public class ServerManager {
                 .port(ThreadLocalRandom.current().nextInt(10000, 50000))
                 .build();
 
-        srv.prepare();
-        add(srv);
-        template.setRunningServers(template.getRunningServers() + 1);
+        CompletableFuture<Server> result = new CompletableFuture<>();
 
-        RedstoneCloud cloud = RedstoneCloud.getInstance();
-        cloud.getScheduler().scheduleDelayedTask(() -> {
-            srv.start();
-            RedstoneCloud.getInstance().getEventManager().callEvent(new ServerStartEvent(srv));
-        }, TimeUnit.SECONDS, 1);
+        srv.initName(id != null && id != -1 ? id : null);
 
-        return srv;
+        RedstoneCloud.getInstance().getEventManager().callEvent(new ServerCreateEvent(srv)).whenComplete((res, a) -> {
+            if(res.isCancelled()) {
+                result.complete(null);
+                return;
+            }
+
+            result.complete(srv);
+            srv.prepare();
+            add(srv);
+            template.setRunningServers(template.getRunningServers() + 1);
+
+            RedstoneCloud cloud = RedstoneCloud.getInstance();
+            cloud.getScheduler().scheduleDelayedTask(() -> {
+                srv.start();
+                RedstoneCloud.getInstance().getEventManager().callEvent(new ServerStartEvent(srv));
+            }, TimeUnit.SECONDS, 1);
+        });
+
+        try {
+            return result.completeOnTimeout(null, 1000L, TimeUnit.MILLISECONDS).get();
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public boolean stopAll() {
