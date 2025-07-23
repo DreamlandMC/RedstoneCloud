@@ -1,4 +1,5 @@
 package de.redstonecloud.cloud.server;
+
 import de.redstonecloud.api.components.ServerStatus;
 import lombok.Builder;
 import lombok.Getter;
@@ -13,42 +14,88 @@ public class Template {
     private int minServers;
     private int maxServers;
     private boolean staticServer;
+
     @Builder.Default
     @Setter
     public int runningServers = 0;
+
     @Setter
     @Builder.Default
     public boolean stopOnEmpty = false;
 
+    @Setter
+    @Builder.Default
+    public int shutdownTimeMs = 5000;
+
+    private static final long IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
     public void checkServers() {
-        Server[] servers = ServerManager.getInstance().getServersByTemplate(this);
-
-        boolean create = false;
-
+        Server[] servers = getServers();
         runningServers = servers.length;
 
-        if (minServers > 0 && runningServers < minServers) {
-            create = true;
-        }
+        handleIdleServers(servers);
 
-        //if every servers status is not running or starting or preparing, then create a new server
+        if (shouldCreateNewServer(servers)) {
+            createNewServer();
+        }
+    }
+
+    private Server[] getServers() {
+        return ServerManager.getInstance().getServersByTemplate(this);
+    }
+
+    private void handleIdleServers(Server[] servers) {
+        if (!stopOnEmpty) return;
+
+        for (Server server : servers) {
+            if (isServerIdle(server)) {
+                server.kill();
+            }
+        }
+    }
+
+    private boolean isServerIdle(Server server) {
+        boolean hasNoPlayers = server.players.isEmpty();
+        boolean exceedsIdleTime = (System.currentTimeMillis() - server.lastPlayerUpdate) > IDLE_TIMEOUT_MS;
+        return hasNoPlayers && exceedsIdleTime;
+    }
+
+    private boolean shouldCreateNewServer(Server[] servers) {
+        return (needsMoreServers() || allServersBlocked(servers)) && canCreateMoreServers();
+    }
+
+    private boolean needsMoreServers() {
+        return minServers > 0 && runningServers < minServers;
+    }
+
+    private boolean allServersBlocked(Server[] servers) {
+        if (minServers <= 0 || servers.length == 0) return false;
+
+        return countBlockedServers(servers) == servers.length;
+    }
+
+    private int countBlockedServers(Server[] servers) {
         int blocked = 0;
         for (Server server : servers) {
-            if (server.getStatus() != ServerStatus.RUNNING && server.getStatus() != ServerStatus.STARTING && server.getStatus() != ServerStatus.PREPARED) {
+            if (isServerBlocked(server)) {
                 blocked++;
             }
-
-            if(stopOnEmpty && server.players.isEmpty() && (System.currentTimeMillis() - server.lastPlayerUpdate > 1000*60*5)) {
-                server.stop();
-            }
         }
+        return blocked;
+    }
 
-        if (minServers > 0 && blocked == servers.length) {
-            create = true;
-        }
+    private boolean isServerBlocked(Server server) {
+        ServerStatus status = server.getStatus();
+        return status != ServerStatus.RUNNING &&
+                status != ServerStatus.STARTING &&
+                status != ServerStatus.PREPARED;
+    }
 
-        if (create && runningServers <= maxServers) {
-            ServerManager.getInstance().startServer(this);
-        }
+    private boolean canCreateMoreServers() {
+        return runningServers <= maxServers;
+    }
+
+    private void createNewServer() {
+        ServerManager.getInstance().startServer(this);
     }
 }

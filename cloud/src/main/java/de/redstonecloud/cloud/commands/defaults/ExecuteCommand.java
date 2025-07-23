@@ -4,21 +4,20 @@ import de.redstonecloud.api.util.EmptyArrays;
 import de.redstonecloud.cloud.RedstoneCloud;
 import de.redstonecloud.cloud.commands.Command;
 import de.redstonecloud.cloud.server.Server;
-import de.redstonecloud.cloud.server.ServerLogger;
 import lombok.extern.log4j.Log4j2;
 
 @Log4j2
-public class ConsoleCommand extends Command {
+public class ExecuteCommand extends Command {
     public int argCount = 1;
 
-    public ConsoleCommand(String cmd) {
+    public ExecuteCommand(String cmd) {
         super(cmd);
     }
 
     @Override
     protected void onCommand(String[] args) {
-        if (args.length == 0) {
-            log.error("Usage: console <server>");
+        if (args.length < 2) {
+            log.error("Usage: execute <server> <command>");
             return;
         }
 
@@ -28,11 +27,17 @@ public class ConsoleCommand extends Command {
             return;
         }
 
-        ServerLogger logger = server.getLogger();
+        String command = String.join(" ", args)
+                .substring(args[0].length() + 1)
+                .trim();
 
-        log.info("Console set to " + server.getName());
-        logger.enableConsoleLogging();
-        RedstoneCloud.getInstance().setCurrentLogServer(logger);
+        if (command.isEmpty()) {
+            log.error("No command provided to execute.");
+            return;
+        }
+
+        server.writeConsole(command);
+        log.info("Command executed on server " + server.getName() + ": " + command);
     }
 
     @Override

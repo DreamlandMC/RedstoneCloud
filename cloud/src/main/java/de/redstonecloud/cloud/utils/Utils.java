@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import de.redstonecloud.cloud.RedstoneCloud;
 import de.redstonecloud.cloud.config.CloudConfig;
-import de.redstonecloud.cloud.logger.Logger;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -21,6 +21,7 @@ import java.util.Scanner;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
+@Slf4j
 public class Utils {
     public static String[] dropFirstString(String[] input) {
         String[] anstring = new String[input.length - 1];
@@ -79,184 +80,234 @@ public class Utils {
     }
 
     public static void setup() {
-        Logger l = Logger.getInstance();
         Scanner input = new Scanner(System.in);
-        String result;
-
         Gson gson = new Gson();
 
+        RedisConfig redisConfig = setupRedis(input);
+        createBaseStructure();
+
+        JsonObject supportedSoftware = loadSupportedSoftware(gson);
+        boolean setupProxy = setupProxyInstance(input, gson, supportedSoftware);
+        boolean setupServer = setupServerInstance(input, gson, supportedSoftware);
+
+        copyCloudFiles();
+        showSummary(redisConfig, setupProxy, setupServer);
+        finalizeSetup(redisConfig);
+        waitForUserToStart();
+    }
+
+    private static class RedisConfig {
+        boolean useBuiltIn;
+        String bind;
+        int port;
+        boolean downloadUpdate;
+
+        RedisConfig(boolean useBuiltIn, String bind, int port, boolean downloadUpdate) {
+            this.useBuiltIn = useBuiltIn;
+            this.bind = bind;
+            this.port = port;
+            this.downloadUpdate = downloadUpdate;
+        }
+    }
+
+    private static RedisConfig setupRedis(Scanner input) {
         boolean redis = true;
         int intRedisPort = 6379;
-        String redisBind;
+        String redisBind = "127.0.0.1";
         boolean downloadRedis = true;
 
-        l.setup("RC Setup", "§cRedstoneCloud comes with a built-in redis instance. Would you like to use it? §3[y/n] §a(default: y): ");
-        result = input.nextLine();
-        if (result.toLowerCase().contains("n")) redis = false;
-
-        if (redis) {
-            l.setup("RC Setup", "§cPlease provide an ip redis should bind to. §3[127.0.0.1, 0.0.0.0] §a(default: 127.0.0.1): ");
-            redisBind = input.nextLine();
-            l.setup("RC Setup", "§cPlease provide a redis port you want to use. §3[number] §a(default: 6379): ");
-            try {
-                intRedisPort = input.nextInt();
-            } catch (Exception e) {
-                l.setup("RC Setup", "§eProvided invalid port, using default port.", true);
-            }
-
-            /*
-            l.setup("RC Setup", "§cThere is a redis update avaiable (Redis 7.2). Do you want to download it? Otherwise, outdated Redis 2.8 will be used. §3[y/n] §a(default: y)");
-            result = input.nextLine();
-            if(result.toLowerCase().contains("n")) downloadRedis = false;
-            System.out.println();
-
-             */
-
-            //TODO: DOWNLOAD REDIS
-        } else {
-            l.setup("RC Setup", "§cPlease provide your redis instance ip address. §3[127.0.0.1, 0.0.0.0, ...] §a(default: 127.0.0.1): ");
-            redisBind = input.nextLine();
-            l.setup("RC Setup", "§cPlease provide the port of your redis instance. §3[number] §a(default: 6379): ");
-            try {
-                intRedisPort = input.nextInt();
-            } catch (Exception e) {
-                l.setup("RC Setup", "§eProvided invalid port, using default port.", true);
-            }
+        log.info("RedstoneCloud comes with a built-in redis instance. Would you like to use it? [y/n] (default: y): ");
+        String result = input.nextLine();
+        if (result.toLowerCase().contains("n")) {
+            redis = false;
         }
 
-        l.setup("RC Setup", "§eSettings completed. Generating basic file structure...", true);
-        RedstoneCloud.createBaseFolders();
-        l.setup("RC Setup", "§eBasic folders generated. Starting server config...", true);
+        log.info("Please provide an IP redis should bind to [127.0.0.1, 0.0.0.0] (default: 127.0.0.1): ");
+        String bindInput = input.nextLine();
+        if (!bindInput.isEmpty()) {
+            redisBind = bindInput;
+        }
 
-        JsonObject supportedSoftware = null;
+        log.info("Please provide a redis port you want to use [default: 6379]: ");
+        try {
+            String portInput = input.nextLine();
+            if (!portInput.isEmpty()) {
+                intRedisPort = Integer.parseInt(portInput);
+            }
+        } catch (Exception e) {
+            log.warn("Provided invalid port, using default port.");
+        }
+
+        return new RedisConfig(redis, redisBind, intRedisPort, downloadRedis);
+    }
+
+    private static void createBaseStructure() {
+        log.info("Settings completed. Generating basic file structure...");
+        RedstoneCloud.createBaseFolders();
+        log.info("Basic folders generated. Starting server config...");
+    }
+
+    private static JsonObject loadSupportedSoftware(Gson gson) {
+        try {
+            JsonObject supportedSoftware = gson.fromJson(Utils.readFileFromResources("supportedSoftware.json"), JsonObject.class);
+
+            if (supportedSoftware == null) {
+                log.error("Output of supportedSoftware.json is null, shutting down...");
+                System.exit(0);
+            }
+
+            return supportedSoftware;
+        } catch (Exception e) {
+            log.error("Error while reading supportedSoftware.json, shutting down...", e);
+            System.exit(0);
+            return null; // unreachable, but required
+        }
+    }
+
+    private static boolean setupProxyInstance(Scanner input, Gson gson, JsonObject supportedSoftware) {
+        log.info("Would you like to setup a proxy instance? [y/n] (default: y): ");
+        String result = input.nextLine();
+
+        if (result.toLowerCase().contains("n")) {
+            return false;
+        }
+
+        String software = selectSoftware(input, supportedSoftware, "proxy");
+        installSoftware(gson, software, "Proxy", "proxy.jar");
+
+        return true;
+    }
+
+    private static boolean setupServerInstance(Scanner input, Gson gson, JsonObject supportedSoftware) {
+        log.info("Would you like to setup a server instance? [y/n] (default: y): ");
+        String result = input.nextLine();
+
+        if (result.toLowerCase().contains("n")) {
+            return false;
+        }
+
+        String software = selectSoftware(input, supportedSoftware, "server");
+        installSoftware(gson, software, "Lobby", "server.jar");
+
+        return true;
+    }
+
+    private static String selectSoftware(Scanner input, JsonObject supportedSoftware, String type) {
+        log.info("Please select a {} software you want to use {}", type,
+                supportedSoftware.get(type).getAsJsonArray().toString().replace("\"", ""));
+
+        String result = input.nextLine();
+        String finalResult = result.toUpperCase();
+
+        boolean isValid = supportedSoftware.get(type).getAsJsonArray().asList().stream()
+                .anyMatch(item -> item.getAsString().equalsIgnoreCase(finalResult));
+
+        if (!isValid) {
+            log.warn("{} software {} is unknown.", type, result);
+            System.exit(0);
+        }
+
+        return finalResult;
+    }
+
+    private static void installSoftware(Gson gson, String software, String templateName, String jarName) {
+        log.info("Generating structure for {}...", software);
 
         try {
-            supportedSoftware = gson.fromJson(Utils.readFileFromResources("supportedSoftware.json"), JsonObject.class);
+            JsonObject settings = gson.fromJson(Utils.readFileFromResources("templates/" + software + "/settings.json"), JsonObject.class);
+
+            copyTemplateFiles(software, templateName);
+            log.info("Copied important files, downloading software...");
+
+            downloadSoftware(software, templateName, jarName);
+            log.info("Downloaded software successfully.");
+
+            installCloudBridge(software, templateName, settings);
+            log.info("{} installed successfully.\n", templateName);
+
         } catch (Exception e) {
-            e.printStackTrace();
-            l.setup("RC Setup", "§4Error while reading supportedSoftware.json, shutting down...", true);
+            log.error("Cannot setup {}, shutting down...", templateName.toLowerCase(), e);
             System.exit(0);
         }
+    }
 
-        if (supportedSoftware == null) {
-            l.setup("RC Setup", "§4Output of supportedSoftware.json is null, shutting down...", true);
-            System.exit(0);
-        }
+    private static void copyTemplateFiles(String software, String templateName) throws IOException, URISyntaxException {
+        FileUtils.copyURLToFile(Utils.getResourceFile("templates/" + software + "/template_cfg.json"),
+                new File("./template_configs/" + templateName + ".json"));
+        FileUtils.copyURLToFile(Utils.getResourceFile("templates/" + software + "/type.json"),
+                new File("./types/" + software + ".json"));
+        Utils.copyFolderFromCurrentJar("templates/" + software + "/files",
+                new File("./templates/" + templateName + "/"));
+    }
 
-        boolean setupProxy = true;
-        boolean setupServer = true;
+    private static void downloadSoftware(String software, String templateName, String jarName) throws IOException {
+        String downloadUrl = Utils.readFileFromResources("templates/" + software + "/download_url.txt");
+        FileUtils.copyURLToFile(URI.create(downloadUrl).toURL(),
+                new File("./templates/" + templateName + "/" + jarName));
+    }
 
-        l.setup("RC Setup", "§cWould you like to setup a proxy instance? §3[y/n] §a(default: y): ");
-        result = input.nextLine();
-        if (result.toLowerCase().contains("n")) setupProxy = false;
+    private static void installCloudBridge(String software, String templateName, JsonObject settings) throws IOException {
+        log.info("Installing CloudBridge on {}...", templateName);
 
-        if (setupProxy) {
-            l.setup("RC Setup", "§cPlease select a proxy software you want to use §3" + supportedSoftware.get("proxy").getAsJsonArray().toString().replace("\"", "") + " ");
-            result = input.nextLine();
-            String finalResult = result.toUpperCase();
-            if (supportedSoftware.get("proxy").getAsJsonArray().asList().stream().noneMatch(proxy -> proxy.getAsString().equalsIgnoreCase(finalResult))) {
-                l.setup("RC Setup", "§eProxy software " + result + " is unknown.", true);
-                System.exit(0);
-            }
-            l.setup("RC Setup", "§eGenerating structure for " + result + "...", true);
-            try {
-                JsonObject settings = gson.fromJson(Utils.readFileFromResources("templates/" + finalResult + "/settings.json"), JsonObject.class);
-                FileUtils.copyURLToFile(Utils.getResourceFile("templates/" + finalResult + "/template_cfg.json"), new File("./template_configs/Proxy.json"));
-                FileUtils.copyURLToFile(Utils.getResourceFile("templates/" + finalResult + "/type.json"), new File("./types/" + finalResult + ".json"));
-                Utils.copyFolderFromCurrentJar("templates/" + finalResult + "/files", new File("./templates/Proxy/"));
-                l.setup("RC Setup", "§eCopied important files, downloading software...", true);
-                FileUtils.copyURLToFile(URI.create(Utils.readFileFromResources("templates/" + finalResult + "/download_url.txt")).toURL(), new File("./templates/Proxy/proxy.jar"));
-                l.setup("RC Setup", "§eDownloaded software successfully.", true);
+        String bridgeUrl = Utils.readFileFromResources("templates/" + software + "/download_url_bridge.txt");
+        String pluginDir = settings.get("pluginDir").getAsString();
 
-                l.setup("RC Setup", "§eInstalling CloudBridge on Proxy...", true);
-                FileUtils.copyURLToFile(URI.create(Utils.readFileFromResources("templates/" + finalResult + "/download_url_bridge.txt")).toURL(), new File("./templates/Proxy/" + settings.get("pluginDir").getAsString() + "/CloudBridge.jar"));
-                l.setup("RC Setup", "§eInstalled CloudBridge", true);
+        FileUtils.copyURLToFile(URI.create(bridgeUrl).toURL(),
+                new File("./templates/" + templateName + "/" + pluginDir + "/CloudBridge.jar"));
 
-                l.setup("RC Setup", "§eProxy installed successfully. \n", true);
-            } catch (Exception e) {
-                e.printStackTrace();
-                l.setup("RC Setup", "§4Cannot setup proxy, shutting down...", true);
-                System.exit(0);
-            }
-        }
+        log.info("Installed CloudBridge.");
+    }
 
-        l.setup("RC Setup", "§cWould you like to setup a server instance? §3[y/n] §a(default: y): ");
-        result = input.nextLine();
-        if (result.toLowerCase().contains("n")) setupServer = false;
+    private static void copyCloudFiles() {
+        log.info("Copying cloud setup files...");
 
-        if (setupServer) {
-            l.setup("RC Setup", "§cPlease select a server software you want to use §3" + supportedSoftware.get("server").getAsJsonArray().toString().replace("\"", "") + " ");
-            result = input.nextLine();
-            String finalResult = result.toUpperCase();
-            if (supportedSoftware.get("server").getAsJsonArray().asList().stream().noneMatch(server -> server.getAsString().equalsIgnoreCase(finalResult))) {
-                l.setup("RC Setup", "§eServer software " + result + " is unknown.", true);
-                System.exit(0);
-            }
-            l.setup("RC Setup", "§eGenerating structure for " + result + "...", true);
-            try {
-                JsonObject settings = gson.fromJson(Utils.readFileFromResources("templates/" + finalResult + "/settings.json"), JsonObject.class);
-                FileUtils.copyURLToFile(Utils.getResourceFile("templates/" + finalResult + "/template_cfg.json"), new File("./template_configs/Lobby.json"));
-                FileUtils.copyURLToFile(Utils.getResourceFile("templates/" + finalResult + "/type.json"), new File("./types/" + finalResult + ".json"));
-                Utils.copyFolderFromCurrentJar("templates/" + finalResult + "/files", new File("./templates/Lobby/"));
-                l.setup("RC Setup", "§eCopied important files, downloading software...", true);
-                FileUtils.copyURLToFile(URI.create(Utils.readFileFromResources("templates/" + finalResult + "/download_url.txt")).toURL(), new File("./templates/Lobby/server.jar"));
-                l.setup("RC Setup", "§eDownloaded software successfully.", true);
-
-                l.setup("RC Setup", "§eInstalling CloudBridge on Server...", true);
-                FileUtils.copyURLToFile(URI.create(Utils.readFileFromResources("templates/" + finalResult + "/download_url_bridge.txt")).toURL(), new File("./templates/Lobby/" + settings.get("pluginDir").getAsString() + "/CloudBridge.jar"));
-                l.setup("RC Setup", "§eInstalled CloudBridge", true);
-
-                l.setup("RC Setup", "§eServer installed successfully. \n", true);
-            } catch (Exception e) {
-                e.printStackTrace();
-                l.setup("RC Setup", "§4Cannot setup Server, shutting down...", true);
-                System.exit(0);
-            }
-        }
-
-        l.setup("RC Setup", "§eCopying cloud setup files...", true);
         try {
             FileUtils.copyURLToFile(Utils.getResourceFile("cloud.json"), new File("./cloud.json"));
             FileUtils.copyURLToFile(Utils.getResourceFile("language.json"), new File("./language.json"));
+            log.info("Copied cloud files.");
         } catch (IOException e) {
-            e.printStackTrace();
-            l.setup("RC Setup", "§4Copying cloud files failed, shutting down...", true);
+            log.error("Copying cloud files failed, shutting down...", e);
             System.exit(0);
         }
-        l.setup("RC Setup", "§eCopied cloud files.", true);
+    }
 
-        l.setup("RC Setup", "", true);
-        l.setup("RC Setup", "", true);
-        l.setup("RC Setup", "§eCloud setup completed.", true);
-        l.setup("RC Setup", "====================", true);
-        l.setup("RC Setup", "Built-in redis: " + redis, true);
-        l.setup("RC Setup", "Built-in redis port: " + intRedisPort, true);
-        l.setup("RC Setup", "Updated built-in redis: " + downloadRedis, true);
-        l.setup("RC Setup", "Setup proxy: " + setupProxy, true);
-        l.setup("RC Setup", "Setup server: " + setupServer, true);
-        l.setup("RC Setup", "====================", true);
+    private static void showSummary(RedisConfig redisConfig, boolean setupProxy, boolean setupServer) {
+        log.info("");
+        log.info("Cloud setup completed.");
+        log.info("====================");
+        log.info("Built-in redis: {}", redisConfig.useBuiltIn);
+        log.info("Built-in redis port: {}", redisConfig.port);
+        log.info("Updated built-in redis: {}", redisConfig.downloadUpdate);
+        log.info("Setup proxy: {}", setupProxy);
+        log.info("Setup server: {}", setupServer);
+        log.info("====================");
+    }
 
+    private static void finalizeSetup(RedisConfig redisConfig) {
         try {
             JsonObject cfgFile = CloudConfig.getCfg();
-            cfgFile.addProperty("redis_port", intRedisPort);
-            cfgFile.addProperty("redis_bind", redisBind);
-            cfgFile.addProperty("custom_redis", !redis);
+            cfgFile.addProperty("redis_port", redisConfig.port);
+            cfgFile.addProperty("redis_bind", redisConfig.bind);
+            cfgFile.addProperty("custom_redis", !redisConfig.useBuiltIn);
 
             Files.writeString(Paths.get(RedstoneCloud.workingDir + "/cloud.json"), cfgFile.toString());
-            Files.writeString(Paths.get(RedstoneCloud.workingDir + "/.cloud.setup"), "Cloud is set up. Do not delete this file or the setup will start again.");
+            Files.writeString(Paths.get(RedstoneCloud.workingDir + "/.cloud.setup"),
+                    "Cloud is set up. Do not delete this file or the setup will start again.");
 
-            CloudConfig.getCfg(true); // Reload config fur future uses
+            CloudConfig.getCfg(true);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
 
-        l.setup("RC Setup", "", true);
-        l.setup("RC Setup", "§cPlease press Enter to start the cloud.", true);
+    private static void waitForUserToStart() {
+        log.info("");
+        log.info("Please press Enter to start the cloud.");
 
         try {
-            System.in.read(new byte[2]); // TODO: Handle
+            System.in.read(new byte[2]);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Error waiting for input", e);
         }
     }
 }

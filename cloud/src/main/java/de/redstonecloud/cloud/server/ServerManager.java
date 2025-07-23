@@ -9,6 +9,8 @@ import de.redstonecloud.cloud.events.defaults.ServerCreateEvent;
 import de.redstonecloud.cloud.events.defaults.ServerStartEvent;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
+import lombok.extern.java.Log;
+import lombok.extern.log4j.Log4j2;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,6 +22,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 @Getter
+@Log4j2
 public class ServerManager {
     private static ServerManager INSTANCE;
 
@@ -49,7 +52,7 @@ public class ServerManager {
             try {
                 content = new String(Files.readAllBytes(file.toPath()));
             } catch (IOException e) {
-                e.printStackTrace();
+                log.error("Error reading template file: " + file.getName(), e);
             }
 
             if (content.isEmpty()) continue;
@@ -63,6 +66,7 @@ public class ServerManager {
                     .minServers(data.get("minServers").getAsInt())
                     .maxServers(data.get("maxServers").getAsInt())
                     .staticServer(data.get("staticServer").getAsBoolean())
+                    .shutdownTimeMs(data.has("shutdownTimeMs") ? data.get("shutdownTimeMs").getAsInt() : 5000)
                     .stopOnEmpty(data.has("stopOnEmpty") && data.get("stopOnEmpty").getAsBoolean())
                     .build();
             templates.put(data.get("name").getAsString(), t);
@@ -80,7 +84,7 @@ public class ServerManager {
             try {
                 content = new String(Files.readAllBytes(file.toPath()));
             } catch (IOException e) {
-                e.printStackTrace();
+                log.error("Error reading server type file: " + file.getName(), e);
             }
 
             if (content.isEmpty()) continue;
@@ -128,59 +132,56 @@ public class ServerManager {
     public Server startServer(Template template, Integer id) {
         Server srv = Server.builder()
                 .template(template)
+                .uuid(UUID.randomUUID())
                 .createdAt(System.currentTimeMillis())
                 .type(template.getType())
                 .port(ThreadLocalRandom.current().nextInt(10000, 50000))
                 .build();
 
-        CompletableFuture<Server> result = new CompletableFuture<>();
-
         srv.initName(id != null && id != -1 ? id : null);
 
-        RedstoneCloud.getInstance().getEventManager().callEvent(new ServerCreateEvent(srv)).whenComplete((res, a) -> {
-            if(res.isCancelled()) {
-                result.complete(null);
-                return;
-            }
-
-            result.complete(srv);
-            srv.prepare();
-            add(srv);
-            template.setRunningServers(template.getRunningServers() + 1);
-
-            RedstoneCloud cloud = RedstoneCloud.getInstance();
-            cloud.getScheduler().scheduleDelayedTask(() -> {
-                srv.start();
-                RedstoneCloud.getInstance().getEventManager().callEvent(new ServerStartEvent(srv));
-            }, TimeUnit.SECONDS, 1);
-        });
-
-        try {
-            return result.completeOnTimeout(null, 1000L, TimeUnit.MILLISECONDS).get();
-        } catch(Exception e) {
-            e.printStackTrace();
+        ServerCreateEvent res = RedstoneCloud.getInstance().getEventManager().callEvent(new ServerCreateEvent(srv));
+        if (res.isCancelled()) {
             return null;
         }
+
+        srv.prepare();
+        add(srv);
+        template.setRunningServers(template.getRunningServers() + 1);
+
+        RedstoneCloud cloud = RedstoneCloud.getInstance();
+        cloud.getScheduler().scheduleDelayedTask(() -> {
+            srv.start();
+            RedstoneCloud.getInstance().getEventManager().callEvent(new ServerStartEvent(srv));
+        }, TimeUnit.SECONDS, 1);
+
+        return srv;
     }
 
     public boolean stopAll() {
-        boolean allStopped = false;
-        int stopped = 0;
-
         if (servers.isEmpty()) return true;
 
-        for (Server server : servers.values().toArray(Server[]::new).clone()) {
-            synchronized (this) {
-                server.stop();
-                stopped++;
-            }
+        List<CompletableFuture<Void>> stopFutures = new ArrayList<>();
 
-            if (stopped == servers.size()) {
-                allStopped = true;
+        for (Server server : servers.values().toArray(Server[]::new).clone()) {
+            CompletableFuture<Void> stopFuture = CompletableFuture.runAsync(() -> {
+                synchronized (this) {
+                    server.kill();
+                }
+            });
+            stopFutures.add(stopFuture);
+        }
+
+        while(!servers.isEmpty()) {
+            try {
+                CompletableFuture.allOf(stopFutures.toArray(new CompletableFuture[0])).get();
+            } catch (InterruptedException | ExecutionException e) {
+                log.error("Error while stopping servers", e);
+                return false;
             }
         }
 
-        return allStopped;
+        return true;
     }
 
     public Server[] getServersByTemplate(Template template) {
@@ -196,12 +197,12 @@ public class ServerManager {
         int min = Integer.MAX_VALUE;
 
         for (Server server : servers.values()) {
-            if (server.getTemplate().equals(template) && server.getStatus() == ServerStatus.RUNNING) {
+            if (server.getTemplate().equals(template) &&
+                    server.getStatus() == ServerStatus.RUNNING &&
+                    server.getPlayers().size() < min) {
                 //get server with most players
-                if (server.getPlayers().size() < min) {
-                    min = server.getPlayers().size();
-                    best.add(new BestServerResult(server, server.getTemplate().getMaxPlayers() - server.getPlayers().size()));
-                }
+                min = server.getPlayers().size();
+                best.add(new BestServerResult(server, server.getTemplate().getMaxPlayers() - server.getPlayers().size()));
             }
         }
 
