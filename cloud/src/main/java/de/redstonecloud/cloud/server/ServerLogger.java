@@ -69,7 +69,7 @@ public class ServerLogger extends Thread {
 
             try {
                 while (running && (line = out.readLine()) != null) {
-                    if (logToConsole) log.info("[" + server.getName() + "]", line);
+                    if (logToConsole) log.info("[{}] {}", server.getName(), line);
                     if (writer != null) {
                         try {
                             writer.write(line);
@@ -109,14 +109,14 @@ public class ServerLogger extends Thread {
             BufferedReader reader = new BufferedReader(new FileReader(logFile.getPath()));
             String line;
             while ((line = reader.readLine()) != null) {
-                log.info("[" + server.getName() + "]", line);
+                log.info("[{}] {}", server.getName(), line);
                 sent.add(line);
             }
 
             //output all lastMessages
             for (String msg : lastMessages) {
                 if (!sent.contains(msg)) {
-                    log.info("[" + server.getName() + "]", msg);
+                    log.info("[{}] {}", server.getName(), msg);
                 }
             }
 
