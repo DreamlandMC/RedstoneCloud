@@ -6,6 +6,6 @@
   "bridge": {
     "hub_template": "Lobby",
     "hubcommand_desc": "Go to the Lobby",
-    "hubcommand_no_hub_avaiable": "There is no hub avaiable at the moment."
+    "hubcommand_no_hub_available": "There is no hub avaiable at the moment."
   }
 }
