@@ -40,11 +40,9 @@ public class UpdateCommand extends Command {
 
             String type = cfg.get("type").getAsString().toUpperCase();
 
-            String software = type;
-
             String jarName = isProxyType(type) ? "proxy.jar" : "server.jar";
 
-            Utils.updateSoftware(templateName, software, jarName, reboot);
+            Utils.updateSoftware(templateName, type, jarName, reboot);
 
         } catch (Exception e) {
             log.error("Failed to update template '{}'", args[0], e);
