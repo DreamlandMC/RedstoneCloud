@@ -3,7 +3,9 @@ package de.redstonecloud.cloud.commands.defaults;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import de.redstonecloud.api.util.EmptyArrays;
+import de.redstonecloud.cloud.RedstoneCloud;
 import de.redstonecloud.cloud.commands.Command;
+import de.redstonecloud.cloud.server.Template;
 import de.redstonecloud.cloud.utils.Utils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
@@ -28,7 +30,13 @@ public class UpdateCommand extends Command {
         String templateName = args[0];
         boolean reboot = args.length > 1 && args[1].equalsIgnoreCase("--reboot");
 
+        if (!RedstoneCloud.getInstance().getServerManager().getTemplates().containsKey(templateName)) {
+            log.error("Template '{}' does not exist.", templateName);
+            return;
+        }
+
         try {
+            Template template = RedstoneCloud.getInstance().getServerManager().getTemplate(templateName);
             File cfgFile = new File("./template_configs/" + templateName + ".json");
             if (!cfgFile.exists()) {
                 log.error("template_cfg.json for template '{}' not found.", templateName);
@@ -40,17 +48,13 @@ public class UpdateCommand extends Command {
 
             String type = cfg.get("type").getAsString().toUpperCase();
 
-            String jarName = isProxyType(type) ? "proxy.jar" : "server.jar";
+            String jarName = template.getType().isProxy() ? "proxy.jar" : "server.jar";
 
             Utils.updateSoftware(templateName, type, jarName, reboot);
 
         } catch (Exception e) {
             log.error("Failed to update template '{}'", args[0], e);
         }
-    }
-
-    private boolean isProxyType(String type) {
-        return type.equalsIgnoreCase("WDPE");
     }
 
     @Override
