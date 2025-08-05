@@ -7,7 +7,6 @@ import de.redstonecloud.cloud.config.CloudConfig;
 import de.redstonecloud.cloud.server.Server;
 import de.redstonecloud.cloud.server.Template;
 import lombok.extern.log4j.Log4j2;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
