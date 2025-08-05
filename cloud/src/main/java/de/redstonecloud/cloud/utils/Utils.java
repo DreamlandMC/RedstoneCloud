@@ -4,7 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import de.redstonecloud.cloud.RedstoneCloud;
 import de.redstonecloud.cloud.config.CloudConfig;
-import lombok.extern.slf4j.Slf4j;
+import de.redstonecloud.cloud.server.Server;
+import de.redstonecloud.cloud.server.Template;
+import lombok.extern.log4j.Log4j2;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -16,12 +18,13 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Scanner;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-@Slf4j
+@Log4j2
 public class Utils {
     public static String[] dropFirstString(String[] input) {
         String[] anstring = new String[input.length - 1];
@@ -36,7 +39,7 @@ public class Utils {
                 throw new IllegalArgumentException("File not found! " + filename);
             }
             // Use a Scanner to read the InputStream as a String
-            try (Scanner scanner = new Scanner(inputStream, StandardCharsets.UTF_8.name())) {
+            try (Scanner scanner = new Scanner(inputStream, StandardCharsets.UTF_8)) {
                 return scanner.useDelimiter("\\A").next(); // Read entire file as a single string
             }
         }
@@ -215,18 +218,44 @@ public class Utils {
 
         try {
             JsonObject settings = gson.fromJson(Utils.readFileFromResources("templates/" + software + "/settings.json"), JsonObject.class);
+            JsonObject typeData = gson.fromJson(Utils.readFileFromResources("templates/" + software + "/type.json"), JsonObject.class);
 
             copyTemplateFiles(software, templateName);
             log.info("Copied important files, downloading software...");
 
-            downloadSoftware(software, templateName, jarName);
+            String downloadUrl = typeData.get("download_url").getAsString();
+            downloadSoftware(downloadUrl, templateName, jarName);
             log.info("Downloaded software successfully.");
 
-            installCloudBridge(software, templateName, settings);
+            String downloadUrlBridge = typeData.get("download_url_bridge").getAsString();
+            installCloudBridge(downloadUrlBridge, templateName, settings);
             log.info("{} installed successfully.\n", templateName);
 
         } catch (Exception e) {
             log.error("Cannot setup {}, shutting down...", templateName.toLowerCase(), e);
+            System.exit(0);
+        }
+    }
+
+    public static void updateSoftware(String templateName, String software, String jarName, boolean reboot) {
+        log.info("Updating {}...", templateName);
+        try {
+            JsonObject typeData = new Gson().fromJson(Utils.readFileFromResources("templates/" + software + "/type.json"), JsonObject.class);
+            String downloadUrl = typeData.get("download_url").getAsString();
+
+            FileUtils.copyURLToFile(URI.create(downloadUrl).toURL(),
+                    new File("./templates/" + templateName + "/" + jarName));
+            log.info("{} updated successfully.\n", templateName);
+
+            if (reboot) {
+                Template template = RedstoneCloud.getInstance().getServerManager().getTemplate(templateName);
+                Server[] servers = RedstoneCloud.getInstance().getServerManager().getServersByTemplate(template);
+
+                Arrays.stream(servers).forEach(Server::stop);
+            }
+
+        } catch (IOException e) {
+            log.error("Cannot update {}, shutting down...", templateName, e);
             System.exit(0);
         }
     }
@@ -240,16 +269,14 @@ public class Utils {
                 new File("./templates/" + templateName + "/"));
     }
 
-    private static void downloadSoftware(String software, String templateName, String jarName) throws IOException {
-        String downloadUrl = Utils.readFileFromResources("templates/" + software + "/download_url.txt");
+    private static void downloadSoftware(String downloadUrl, String templateName, String jarName) throws IOException {
         FileUtils.copyURLToFile(URI.create(downloadUrl).toURL(),
                 new File("./templates/" + templateName + "/" + jarName));
     }
 
-    private static void installCloudBridge(String software, String templateName, JsonObject settings) throws IOException {
+    private static void installCloudBridge(String bridgeUrl, String templateName, JsonObject settings) throws IOException {
         log.info("Installing CloudBridge on {}...", templateName);
 
-        String bridgeUrl = Utils.readFileFromResources("templates/" + software + "/download_url_bridge.txt");
         String pluginDir = settings.get("pluginDir").getAsString();
 
         FileUtils.copyURLToFile(URI.create(bridgeUrl).toURL(),
