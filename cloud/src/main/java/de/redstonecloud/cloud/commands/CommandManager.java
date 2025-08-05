@@ -14,7 +14,7 @@ public class CommandManager {
     private final Set<Command> commands;
 
     public CommandManager() {
-        this.commands = new HashSet<Command>();
+        this.commands = new HashSet<>();
     }
 
     public void addCommand(Command cmd) {

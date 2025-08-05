@@ -65,7 +65,7 @@ public class ServerLogger extends Thread {
         // Start logging
         while (running && server.getProcess() != null && server.getProcess().getInputStream() != null) {
             BufferedReader out = new BufferedReader(new InputStreamReader(server.getProcess().getInputStream()));
-            String line = "";
+            String line;
 
             try {
                 while (running && (line = out.readLine()) != null) {

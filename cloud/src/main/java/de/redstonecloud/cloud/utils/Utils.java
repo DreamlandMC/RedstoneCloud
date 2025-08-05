@@ -39,7 +39,7 @@ public class Utils {
                 throw new IllegalArgumentException("File not found! " + filename);
             }
             // Use a Scanner to read the InputStream as a String
-            try (Scanner scanner = new Scanner(inputStream, StandardCharsets.UTF_8.name())) {
+            try (Scanner scanner = new Scanner(inputStream, StandardCharsets.UTF_8)) {
                 return scanner.useDelimiter("\\A").next(); // Read entire file as a single string
             }
         }
