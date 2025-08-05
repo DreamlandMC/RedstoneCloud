@@ -32,6 +32,7 @@ public class CommandManager {
         addCommand(new KillCommand("kill"));
         addCommand(new ExecuteCommand("execute"));
         addCommand(new PlayerCommand("player"));
+        addCommand(new UpdateCommand("update"));
     }
 
     public void executeCommand(String command, String[] args) {

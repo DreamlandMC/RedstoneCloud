@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import de.redstonecloud.cloud.RedstoneCloud;
 import de.redstonecloud.cloud.config.CloudConfig;
+import de.redstonecloud.cloud.server.Server;
+import de.redstonecloud.cloud.server.Template;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 
@@ -16,6 +18,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Scanner;
 import java.util.jar.JarEntry;
@@ -227,6 +230,27 @@ public class Utils {
 
         } catch (Exception e) {
             log.error("Cannot setup {}, shutting down...", templateName.toLowerCase(), e);
+            System.exit(0);
+        }
+    }
+
+    public static void updateSoftware(String templateName, String software, String jarName, boolean reboot) {
+        log.info("Updating {}...", software);
+        try {
+            String downloadUrl = Utils.readFileFromResources("templates/" + software + "/download_url.txt");
+            FileUtils.copyURLToFile(URI.create(downloadUrl).toURL(),
+                    new File("./templates/" + templateName + "/" + jarName));
+            log.info("{} updated successfully.\n", software);
+
+            if (reboot) {
+                Template template = RedstoneCloud.getInstance().getServerManager().getTemplate(templateName);
+                Server[] servers = RedstoneCloud.getInstance().getServerManager().getServersByTemplate(template);
+
+                Arrays.stream(servers).forEach(Server::stop);
+            }
+
+        } catch (IOException e) {
+            log.error("Cannot update {}, shutting down...", software, e);
             System.exit(0);
         }
     }
