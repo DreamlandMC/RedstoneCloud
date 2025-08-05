@@ -6,6 +6,7 @@ import de.redstonecloud.cloud.RedstoneCloud;
 import de.redstonecloud.cloud.config.CloudConfig;
 import de.redstonecloud.cloud.server.Server;
 import de.redstonecloud.cloud.server.Template;
+import lombok.extern.log4j.Log4j2;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 
@@ -24,7 +25,7 @@ import java.util.Scanner;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-@Slf4j
+@Log4j2
 public class Utils {
     public static String[] dropFirstString(String[] input) {
         String[] anstring = new String[input.length - 1];
@@ -235,12 +236,12 @@ public class Utils {
     }
 
     public static void updateSoftware(String templateName, String software, String jarName, boolean reboot) {
-        log.info("Updating {}...", software);
+        log.info("Updating {}...", templateName);
         try {
             String downloadUrl = Utils.readFileFromResources("templates/" + software + "/download_url.txt");
             FileUtils.copyURLToFile(URI.create(downloadUrl).toURL(),
                     new File("./templates/" + templateName + "/" + jarName));
-            log.info("{} updated successfully.\n", software);
+            log.info("{} updated successfully.\n", templateName);
 
             if (reboot) {
                 Template template = RedstoneCloud.getInstance().getServerManager().getTemplate(templateName);
@@ -250,8 +251,8 @@ public class Utils {
             }
 
         } catch (IOException e) {
-            log.error("Cannot update {}, shutting down...", software, e);
-            System.exit(0);
+            log.error("Cannot update {}, shutting down...", templateName, e);
+            RedstoneCloud.getInstance().stop();
         }
     }
 
