@@ -245,7 +245,7 @@ public class Utils {
 
             FileUtils.copyURLToFile(URI.create(downloadUrl).toURL(),
                     new File("./templates/" + templateName + "/" + jarName));
-            log.info("{} updated successfully.\n", templateName);
+            log.info("{} updated successfully.", templateName);
 
             if (reboot) {
                 Template template = RedstoneCloud.getInstance().getServerManager().getTemplate(templateName);

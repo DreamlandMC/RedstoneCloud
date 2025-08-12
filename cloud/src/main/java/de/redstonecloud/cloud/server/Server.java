@@ -150,6 +150,16 @@ public class Server implements ICloudServer, Cacheable {
             e.printStackTrace();
         }
 
+        File rootPluginsDir = new File(RedstoneCloud.workingDir + "/plugins/" + type.name());
+        File serverPluginsDir = new File(directory + "/plugins");
+
+        if (rootPluginsDir.exists() && rootPluginsDir.isDirectory()) {
+            try {
+                FileUtils.copyDirectory(rootPluginsDir, serverPluginsDir);
+            } catch (IOException e) {
+                log.error("Failed to copy plugins for server type {}", type.name(), e);
+            }
+        }
 
         setStatus(ServerStatus.PREPARED);
     }
