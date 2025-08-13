@@ -72,8 +72,6 @@ public class Broker {
         int port = Integer.parseInt(System.getenv("REDIS_PORT") != null ? System.getenv("REDIS_PORT") : System.getProperty("redis.port"));
         int db = Integer.parseInt(System.getenv("REDIS_DB") != null ? System.getenv("REDIS_DB") : System.getProperty("redis.db"));
 
-        System.out.println(db);
-
         JedisPoolConfig config = new JedisPoolConfig();
         config.setMinIdle(4);
         config.setMaxIdle(8);
@@ -91,8 +89,6 @@ public class Broker {
             while (running) { // Keep the subscriber alive
                 try (Jedis jedis = new Jedis(address, port, 0)) { // Use try-with-resources for safe closing
                     jedis.select(db); // Select the correct database
-
-                    System.out.println(jedis.getDB());
 
                     this.subscriber = jedis; // Save the subscriber instance if needed elsewhere
                     System.out.println("Connecting to Redis...");
